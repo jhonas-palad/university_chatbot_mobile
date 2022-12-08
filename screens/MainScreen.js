@@ -1,43 +1,43 @@
-import React from "react";
+import React, {useState} from "react";
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image } from "react-native";
 import  { Ionicons } from '@expo/vector-icons'
 
 
-export default class MainScreen extends React.Component {
-    state = {
-        name: ""
+const MainScreen = ({navigation}) => {
+    const [name, setName] = useState('');
+    const {navigate} = navigation;
+
+    const next_screen = () => {
+        navigate('Chat', {name});
     }
-    continue = () => {
-        this.props.navigation.navigate("Chat", {name: this.state.name})
-    }
-    render() {
-        return (
-            <View style={styles.container}>
-                <View style={styles.circle}/>
-                <View style={{marginTop: 64}}>
-                    <Image source={require('../assets/chat.png')} 
-                    style={{width: 200, height:200, alignSelf:"center"}}/>
-                </View>
-                <View style={{marginHorizontal: 50}}>
-                    <Text style={styles.header}>Username</Text>
-                    <TextInput 
-                        style={styles.input} placeholder="IamAwesome" 
-                        onChangeText= {name => {
-                            this.setState({ name })
-                        }}
-                        value={this.state.name}
-                    />
-                    <View style={{alignItems: "flex-end", marginTop: 64}}>
-                        <TouchableOpacity 
-                            style={styles.continue}
-                            onPress={this.continue}>
-                            <Ionicons name="arrow-forward" size={24} color="#FFF"/>
-                        </TouchableOpacity>
-                    </View>
+    return (
+        <View style={styles.container}>
+            <View style={styles.circle}/>
+            <View style={{marginTop:64}}>
+                <Image 
+                    source={require('../assets/chat.png')}
+                    style={{width:200, height: 200, alignSelf:'center'}}
+                />
+            </View>
+            <View style={{marginHorizontal: 50}}>
+                <Text style={styles.header}>What's your name?</Text>
+                <TextInput 
+                    style={styles.input} placeholder="Optional" 
+                    onChangeText= {name => {
+                        setName(name)
+                    }}
+                    value={name}
+                />
+                <View style={{alignItems: "flex-end", marginTop: 64}}>
+                    <TouchableOpacity 
+                        style={styles.continue}
+                        onPress={next_screen}>
+                        <Ionicons name="arrow-forward" size={24} color="#FFF"/>
+                    </TouchableOpacity>
                 </View>
             </View>
-        )
-    }
+        </View>
+    )
 }
 
 const styles = StyleSheet.create({
@@ -79,3 +79,5 @@ const styles = StyleSheet.create({
         justifyContent: "center"
     }
 });
+
+export default MainScreen;
