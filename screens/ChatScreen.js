@@ -1,30 +1,46 @@
 import { useState, useEffect, useRef } from 'react';
 import { useCallback } from 'use-memo-one';
-import { Dimensions ,StyleSheet, View, Text, Button} from 'react-native';
+import { Dimensions ,StyleSheet, View, Text, TouchableOpacity} from 'react-native';
 import { GiftedChat } from 'react-native-gifted-chat';
 import { useNetInfo } from '@react-native-community/netinfo';
 import uuid from 'react-native-uuid';
 import GlobalStyles from '../styles/GlobalStyles';
-import { MaterialCommunityIcons  } from '@expo/vector-icons'; 
+import { MaterialCommunityIcons, AntDesign  } from '@expo/vector-icons'; 
+import * as Clipboard from 'expo-clipboard';
+
 const BOT = {
     _id: 99,
     name: 'AsKetty',
     avatar: require('../assets/chat.png')
 }
 
-const ChatScreen = ({route}) => {
+
+const createMessage = (message, user) => {
+    return {
+        _id: uuid.v4(),
+        text:message,
+        createdAt: new Date(),
+        user:user
+    }
+}
+
+const ChatScreen = () => {
     const [ messages, setMessages ] = useState([]);
     const [ reconnect, setReconnect ] = useState(false);
     const ws = useRef(null);
     const openMessage = useRef(null);
+    const messagesRef = useRef(messages);
     const netInfo = useNetInfo();
     const [webSocketMsgStatus, setWebSocketMsgStatus] = useState(false);
     const [networkErrMsg, setNetworkErrMsg] = useState('');
-    const {myName} = route.params;
     useEffect(()=>{
         const { isConnected } = netInfo;
         if(isConnected === false){
             setNetworkErrMsg('No internet connection');
+        }else{
+            if(ws.current){
+                ws.current.readyState === WebSocket.CLOSED && setReconnect(!reconnect);
+            }
         }
         isConnected && (setNetworkErrMsg(''));
     }, [netInfo]);
@@ -34,11 +50,21 @@ const ChatScreen = ({route}) => {
         setWebSocketMsgStatus('Connecting');
         ws.current.onopen = () => {
             setWebSocketMsgStatus('Active');
-            if(openMessage.current === null){
-                console.log('WS opened');
+            if(openMessage.current === null && messages.length === 0){
+                try{
+                    // !displayInitMsg && setDisplayInitMessage(true);
+                    const initMessages =  [
+                        createMessage("Let me know your queries 😊", BOT),
+                        createMessage("Hi, I'm a chatbot", BOT)
+                    ]
+                    
+                    displayMessage(initMessages);
+                }
+                catch(err){
+                    console.log(err);
+                }
             }
             else{
-                console.log("ws opened send");
                 handleOnSend([openMessage.current], true);
             }
             setNetworkErrMsg('')
@@ -56,25 +82,28 @@ const ChatScreen = ({route}) => {
                 });
             }
         }
-
         ws.current.onclose = () => {
             setWebSocketMsgStatus('Disconnected');
-            setNetworkErrMsg('Server is offline');
         }
-
+        // ws.current.onerror = () => {
+        //     if(netInfo.isConnected){
+        //         setNetworkErrMsg('Server went offline, try to restart the app.');
+        //     }
+        // }
         return () => {
             const {readyState} = ws.current;
             if(readyState === WebSocket.OPEN){
                 ws.current.close();
             }
         }
-    }, [reconnect, netInfo]);
+    }, [reconnect]);
 
     const handleOnSend = useCallback((messages = [], retry = false) => {
         const [ message ] = messages;
         const { text } = message;
         try{
-            if(ws.current.readyState === WebSocket.OPEN){
+            const {readyState} = ws.current;
+            if(readyState === WebSocket.OPEN){
                 ws.current.send(text);
                 message.sent = true;
             }
@@ -83,7 +112,6 @@ const ChatScreen = ({route}) => {
             }
         }
         catch(err){
-            console.log("SEND ERR");
             message.sent = false;
             openMessage.current = message;
         }
@@ -91,36 +119,50 @@ const ChatScreen = ({route}) => {
             if(ws.current.readyState === WebSocket.CLOSED){
                 setReconnect(!reconnect);
             }
-            if(retry){
-                openMessage.current = null;
-            }
-            
             !retry && displayMessage(message);
             
         }
-    }, [reconnect]);
+    }, [reconnect, messages]);
 
-    const createMessage = (message, user) => {
-        return {
-            _id: uuid.v4(),
-            text:message,
-            createdAt: new Date(),
-            user:user
-        }
-    }
+    
 
     const displayMessage = (messages) => {
         setMessages(previousMessages => GiftedChat.append(previousMessages, messages));
     };
+    useEffect(()=>{
+        messagesRef.current = messages;
+    }, [messages]);
 
-    const handleLongPress = (context, message) => {
-        const { text } = message;
+    
+    const handleLongPress = (context, message, container) => {
+        const { _id, text, sent } = message;
+        const handleResend = () => {
+            const messagesList = messagesRef.current;
+            const filteredMsgs = messagesList.filter(msg => msg._id !== _id);
+            setMessages(filteredMsgs);
+            handleOnSend([message]);
+        };
         let options = [];
+        const buttonHandler = (index) => {
+            const copyToClipBoard = async (str) => {
+                await Clipboard.setStringAsync(str);
+            }
+            switch(index){
+                case 0:
+                    copyToClipBoard(text);
+                    break;
+                case 1:
+                    sent === false && handleResend();
+                    break;
+                case 2:
+                    break;
+            }
+        }
 
         if(text){
             options.push('Copy');
             if (message?.sent === false){
-                options.push('Resend Message');
+                options.push('Resend');
             }
             options.push('Cancel');
             const cancelButtonIndex = options.length - 1;
@@ -128,20 +170,7 @@ const ChatScreen = ({route}) => {
             context.actionSheet().showActionSheetWithOptions({
               options,
               cancelButtonIndex
-            },
-            //TODO
-                (buttonIndex) => {
-                    switch(buttonIndex){
-                    case 0:
-                        Clipboard.setString(text);
-                        break;
-                    case 1:
-                        break;
-                    case 2:
-                        break;
-                    }
-                }
-            );
+            }, buttonHandler);
         }
     }
     const renderTicks = (message) => {
@@ -173,18 +202,32 @@ const ChatScreen = ({route}) => {
     return (
         <View 
             style={GlobalStyles.droidSafeArea}>
-                <View style={{paddingLeft:15, paddingTop:15}}>
-                    <Text style={{fontSize:20}}>AsKetty</Text>
-                    <Text style={{fontSize:12, ...styles[webSocketMsgStatus]}}>{webSocketMsgStatus}</Text>
+                <View style={{paddingLeft:25, paddingRight:25, paddingBottom: 14, flexDirection:'row', justifyContent:'space-between', alignItems:'center'}}>
+                    <View>
+                        <Text style={{fontSize:20}}>AsKetty</Text>
+                        <Text style={{fontSize:12, ...styles[webSocketMsgStatus]}}>{webSocketMsgStatus}</Text>
+                    </View>
+                    <View>
+                        <TouchableOpacity
+                            style={styles.button}
+                            onPress={()=>{return}}
+                        >
+                            <Text style={{fontSize:12, ...styles[webSocketMsgStatus]}}>
+                                <AntDesign name="ellipsis1" size={24} color="black" />
+                            </Text>
+                        </TouchableOpacity>
+                        
+                    </View>
+
                 </View>
                 <GiftedChat
                     messages={messages}
                     onSend={(messages) => handleOnSend(messages)}
                     user={{
                         _id:1,
-                        name: myName
+                        name: 'user'
                     }}
-                    onLongPress={handleLongPress}
+                    onLongPress={(context, message) => handleLongPress(context, message, messages)}
                     renderTicks={renderTicks}
                     renderChatFooter={renderChatFooter}
                 />
