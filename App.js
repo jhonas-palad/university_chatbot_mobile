@@ -1,16 +1,33 @@
-import { createAppContainer } from "react-navigation";
-import { createStackNavigator } from "react-navigation-stack";
+import * as React from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import MainScreen from './screens/MainScreen'
 import ChatScreen from "./screens/ChatScreen";
 
-const AppNavigator = createStackNavigator(
-  {
-    Login: MainScreen,
-    Chat: ChatScreen
-  },
-  {
-    headerMode:"none"
-  }
-)
-export default createAppContainer(AppNavigator);
+const Stack = createNativeStackNavigator()
+
+const App = () => {
+    return (
+        <NavigationContainer>
+            <Stack.Navigator>
+                <Stack.Screen
+                  name='Home'
+                  component={MainScreen}
+                  initialParams={{myName:'Jhonas'}}
+                  options={{
+                    headerShown: false
+                  }}
+                />
+                <Stack.Screen
+                  name='Chat'
+                  component={ChatScreen}
+                  options={{
+                    headerShown: false
+                  }}
+                />
+            </Stack.Navigator>
+        </NavigationContainer>
+    );
+}
+export default App;

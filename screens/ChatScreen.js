@@ -1,31 +1,26 @@
 import { useState, useEffect, useRef } from 'react';
 import { useCallback } from 'use-memo-one';
-import { Dimensions ,StyleSheet, View, Text} from 'react-native';
+import { Dimensions ,StyleSheet, View, Text, Button} from 'react-native';
 import { GiftedChat } from 'react-native-gifted-chat';
-import { FontAwesomeIcon } from '@fortawesome/react-native-fontawesome';
-import { faCircleExclamation } from '@fortawesome/free-solid-svg-icons';
 import { useNetInfo } from '@react-native-community/netinfo';
 import uuid from 'react-native-uuid';
 import GlobalStyles from '../styles/GlobalStyles';
-
+import { MaterialCommunityIcons  } from '@expo/vector-icons'; 
 const BOT = {
     _id: 99,
     name: 'AsKetty',
     avatar: require('../assets/chat.png')
 }
-const USER = {
-    _id: 1,
-    name: 'user'
-}
-const ChatScreen = () => {
-    const [messages, setMessages] = useState([]);
+
+const ChatScreen = ({route}) => {
+    const [ messages, setMessages ] = useState([]);
     const [ reconnect, setReconnect ] = useState(false);
     const ws = useRef(null);
     const openMessage = useRef(null);
     const netInfo = useNetInfo();
     const [webSocketMsgStatus, setWebSocketMsgStatus] = useState(false);
     const [networkErrMsg, setNetworkErrMsg] = useState('');
-
+    const {myName} = route.params;
     useEffect(()=>{
         const { isConnected } = netInfo;
         if(isConnected === false){
@@ -44,8 +39,9 @@ const ChatScreen = () => {
             }
             else{
                 console.log("ws opened send");
-                ws.current.send(openMessage.current);
+                handleOnSend([openMessage.current], true);
             }
+            setNetworkErrMsg('')
         }
         ws.current.onmessage = ({data}) => {
             
@@ -63,37 +59,46 @@ const ChatScreen = () => {
 
         ws.current.onclose = () => {
             setWebSocketMsgStatus('Disconnected');
+            setNetworkErrMsg('Server is offline');
         }
-        ws.current.onerror = () => {
-            const {readyState} = ws.current;
-            if(readyState >= WebSocket.CLOSING){
-                setWebSocketMsgStatus('Disconnected');
-            }
-        }
-        const wsCurrent = ws.current;
 
         return () => {
-            wsCurrent.close();
+            const {readyState} = ws.current;
+            if(readyState === WebSocket.OPEN){
+                ws.current.close();
+            }
         }
-    }, [reconnect]);
+    }, [reconnect, netInfo]);
 
-    const handleOnSend = useCallback((messages = []) => {
+    const handleOnSend = useCallback((messages = [], retry = false) => {
         const [ message ] = messages;
         const { text } = message;
         try{
-            ws.current.send(text);
-            message.sent = true;
+            if(ws.current.readyState === WebSocket.OPEN){
+                ws.current.send(text);
+                message.sent = true;
+            }
+            else{
+                throw new Error();
+            }
         }
         catch(err){
+            console.log("SEND ERR");
             message.sent = false;
+            openMessage.current = message;
         }
         finally{
             if(ws.current.readyState === WebSocket.CLOSED){
                 setReconnect(!reconnect);
             }
-            displayMessage(message);
+            if(retry){
+                openMessage.current = null;
+            }
+            
+            !retry && displayMessage(message);
+            
         }
-    }, []);
+    }, [reconnect]);
 
     const createMessage = (message, user) => {
         return {
@@ -142,15 +147,15 @@ const ChatScreen = () => {
     const renderTicks = (message) => {
         const {sent, user} = message;
         const isCurrentUser = user?._id === 1;
-
-        return isCurrentUser && !sent ? (
-            <View style={{position:'relative'}}>
-                <FontAwesomeIcon 
-                    style={styles.dangerExclamationCircle}
-                    icon={faCircleExclamation}
-                />
-            </View>
-            ): null
+        return (
+                isCurrentUser && !sent ? (
+                    <View style={{position:'relative'}}>
+                        <Text style={styles.dangerExclamationCircle}>
+                        <MaterialCommunityIcons name="exclamation-thick" size={14} color="white" />
+                        </Text>
+                    </View>
+                ) : (<></>)
+        )
     };
     const renderChatFooter = useCallback((e)=>{
         if(!networkErrMsg){
@@ -163,8 +168,8 @@ const ChatScreen = () => {
                 </Text>
             </View>
         )
+    },[networkErrMsg]);
 
-    },[netInfo]);
     return (
         <View 
             style={GlobalStyles.droidSafeArea}>
@@ -175,13 +180,14 @@ const ChatScreen = () => {
                 <GiftedChat
                     messages={messages}
                     onSend={(messages) => handleOnSend(messages)}
-                    user={USER}
+                    user={{
+                        _id:1,
+                        name: myName
+                    }}
                     onLongPress={handleLongPress}
                     renderTicks={renderTicks}
                     renderChatFooter={renderChatFooter}
-
                 />
-                
         </View >
     )
 }
@@ -189,9 +195,8 @@ const ChatScreen = () => {
 
 const styles = StyleSheet.create({
   dangerExclamationCircle:{ 
-    color: '#bb2124',
-    backgroundColor:'white', 
-    borderRadius:50, 
+    backgroundColor:'#bb2124', 
+    borderRadius:50,
     marginRight: 5, 
     marginBottom: 5
   },

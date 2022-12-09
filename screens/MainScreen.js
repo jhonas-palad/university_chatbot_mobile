@@ -3,12 +3,15 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, Image } from "reac
 import  { Ionicons } from '@expo/vector-icons'
 
 
-const MainScreen = ({navigation}) => {
+const MainScreen = ({navigation, route}) => {
     const [name, setName] = useState('');
     const {navigate} = navigation;
 
     const next_screen = () => {
-        navigate('Chat', {name});
+        if(!name){
+            setName(route?.myName ?? 'Jhonas Palad')
+        }
+        navigate('Chat', {myName: name});
     }
     return (
         <View style={styles.container}>
