@@ -13,6 +13,10 @@ const BOT = {
     name: 'AsKetty',
     avatar: require('../assets/chat.png')
 }
+const USER = {
+    _id:1,
+    name: 'user'
+}
 
 
 const createMessage = (message, user) => {
@@ -23,6 +27,23 @@ const createMessage = (message, user) => {
         user:user
     }
 }
+const createMessageWithOpts = (message, options ,user) => {
+    const optKeys = Object.keys(options);
+    const cleanOpts = optKeys.map(key=> ({title:key, value: options[key].text}));
+    return {
+        _id: uuid.v4(),
+        text:message,
+        createdAt: new Date(),
+        quickReplies: {
+            type: 'radio', // or 'checkbox',
+            keepIt: false,
+            values: cleanOpts
+          },
+          user:user,
+    }
+}
+
+const WS_URL = 'wss://chatbotapi.site/chat';
 
 const ChatScreen = () => {
     const [ messages, setMessages ] = useState([]);
@@ -33,6 +54,7 @@ const ChatScreen = () => {
     const netInfo = useNetInfo();
     const [webSocketMsgStatus, setWebSocketMsgStatus] = useState(false);
     const [networkErrMsg, setNetworkErrMsg] = useState('');
+
     useEffect(()=>{
         const { isConnected } = netInfo;
         if(isConnected === false){
@@ -46,7 +68,7 @@ const ChatScreen = () => {
     }, [netInfo]);
 
     useEffect(()=>{
-        ws.current = new WebSocket('ws://139.162.105.247/chat');
+        ws.current = new WebSocket(WS_URL);
         setWebSocketMsgStatus('Connecting');
         ws.current.onopen = () => {
             setWebSocketMsgStatus('Active');
@@ -69,19 +91,15 @@ const ChatScreen = () => {
             }
             setNetworkErrMsg('')
         }
-        ws.current.onmessage = ({data}) => {
-            
-            const parsedData = JSON.parse(data);
-            const { response, follow_up_responses} = parsedData;
-            const message = createMessage(response, BOT);
-            displayMessage(message);
 
-            if(follow_up_responses){
-                follow_up_responses.forEach(msg => {
-                    displayMessage(createMessage(msg, BOT));
-                });
-            }
+        ws.current.onmessage = ({data}) => {
+            const parsedData = JSON.parse(data);
+            const { text, options } = parsedData;
+
+            const messages = !options ? text.map(msg => createMessage(msg, BOT)) : createMessageWithOpts(text, options, BOT);
+            displayMessage(messages);
         }
+
         ws.current.onclose = () => {
             setWebSocketMsgStatus('Disconnected');
         }
@@ -98,8 +116,13 @@ const ChatScreen = () => {
         }
     }, [reconnect]);
 
-    const handleOnSend = useCallback((messages = [], retry = false) => {
-        const [ message ] = messages;
+    const handleOnSend = useCallback((msgs = [], retry = false) => {
+        const [ message ] = msgs;
+        
+        if(!message){
+            return;
+        }
+
         const { text } = message;
         try{
             const {readyState} = ws.current;
@@ -173,6 +196,15 @@ const ChatScreen = () => {
             }, buttonHandler);
         }
     }
+
+    const handleQuickReply = ([msg]) => {
+        const {title, value} = msg;
+        let userMsg = createMessage(title, USER);
+        userMsg.sent=true;
+        const botMsg = createMessage(value, BOT);
+        displayMessage([botMsg, userMsg]);
+    }
+
     const renderTicks = (message) => {
         const {sent, user} = message;
         const isCurrentUser = user?._id === 1;
@@ -202,7 +234,7 @@ const ChatScreen = () => {
     return (
         <View 
             style={GlobalStyles.droidSafeArea}>
-                <View style={{paddingLeft:25, paddingRight:25, paddingBottom: 14, flexDirection:'row', justifyContent:'space-between', alignItems:'center'}}>
+                <View style={{paddingLeft:25, paddingRight:25, paddingBottom:10 , flexDirection:'row', justifyContent:'space-between', alignItems:'center'}}>
                     <View>
                         <Text style={{fontSize:20}}>AsKetty</Text>
                         <Text style={{fontSize:12, ...styles[webSocketMsgStatus]}}>{webSocketMsgStatus}</Text>
@@ -223,13 +255,11 @@ const ChatScreen = () => {
                 <GiftedChat
                     messages={messages}
                     onSend={(messages) => handleOnSend(messages)}
-                    user={{
-                        _id:1,
-                        name: 'user'
-                    }}
+                    user={USER}
                     onLongPress={(context, message) => handleLongPress(context, message, messages)}
                     renderTicks={renderTicks}
                     renderChatFooter={renderChatFooter}
+                    onQuickReply={handleQuickReply }
                 />
         </View >
     )
