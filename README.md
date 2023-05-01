@@ -8,8 +8,8 @@ Chatbot-API : https://github.com/jhonas-palad/Chatbot-API.git
 
 ## Screenshots
 
-<img src="/md_assets/IMG_1787.png" alt="drawing" style="width:200px;"/>
-<img src="/md_assets/IMG_1785.png" alt="drawing" style="width:200px;"/> 
+<img src="/md_assets/IMG_1787.PNG" alt="drawing" style="width:200px;"/>
+<img src="/md_assets/IMG_1785.PNG" alt="drawing" style="width:200px;"/> 
 
-<img src="/md_assets/IMG_1784.png" alt="drawing" style="width:200px;"/>
+<img src="/md_assets/IMG_1784.PNG" alt="drawing" style="width:200px;"/>
 
