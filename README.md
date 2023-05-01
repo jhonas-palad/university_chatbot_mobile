@@ -1,7 +1,7 @@
 # College Chabot Mobile Application
 Mobile chatbot application using React Native 
 
-APK build: https://expo.dev/artifacts/eas/3ccYTbz8TETExizTk8p4m3.apk(expired)
+APK build (expired): https://expo.dev/artifacts/eas/3ccYTbz8TETExizTk8p4m3.apk
 
 Chatbot-API : https://github.com/jhonas-palad/Chatbot-API.git
 
